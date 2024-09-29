@@ -25,16 +25,21 @@ public class OrderService {
         // 'in' 절이므로 중복 조회가 안 되는 문제 발생
         List<Product> products = productRepository.findAllByProductNumberIn(productNumbers);
 
-        Map<String, Product> productMap = products.stream()
-            .collect(Collectors.toMap(product -> product.getProductNumber(), product -> product));
-
-        List<Product> duplicateProducts = productNumbers.stream()
-            .map(product -> productMap.get(product))
-            .collect(Collectors.toList());
+        List<Product> duplicateProducts = findProductsBy(products, productNumbers);
 
         Order order = Order.create(duplicateProducts, registeredDateTime);
         Order savedOrder = orderRepository.save(order);
         return OrderResponse.of(savedOrder);
+    }
+
+    private static List<Product> findProductsBy(List<Product> products,
+        List<String> productNumbers) {
+        Map<String, Product> productMap = products.stream()
+            .collect(Collectors.toMap(product -> product.getProductNumber(), product -> product));
+
+        return productNumbers.stream()
+            .map(product -> productMap.get(product))
+            .collect(Collectors.toList());
     }
 
 }
