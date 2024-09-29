@@ -29,33 +29,49 @@ public class OrderService {
 
     public OrderResponse createOrder(OrderCreateRequest request, LocalDateTime registeredDateTime) {
         List<String> productNumbers = request.getProductNumbers();
-        // 'in' 절이므로 중복 조회가 안 되는 문제 발생
         List<Product> products = findProductsBy(productNumbers);
 
-        List<String> stockProductNumbers = products.stream()
-            .filter(product -> ProductType.containsStockType(product.getType()))
-            .map(product -> product.getProductNumber())
-            .collect(Collectors.toList());
+        // 재고 차감
+        deductStockQuantities(products);
 
-        List<Stock> stocks = stockRepository.findAllByProductNumberIn(stockProductNumbers);
-        Map<String, Stock> stockMap = stocks.stream()
-            .collect(Collectors.toMap(Stock::getProductNumber, s -> s));
+        Order order = Order.create(products, registeredDateTime);
+        Order savedOrder = orderRepository.save(order);
+        return OrderResponse.of(savedOrder);
+    }
 
-        Map<String, Long> productCountingMap = stockProductNumbers.stream()
-            .collect(Collectors.groupingBy(productNumber -> productNumber, Collectors.counting()));
+    private void deductStockQuantities(List<Product> products) {
+        List<String> stockProductNumbers = extractStockProductNumbers(products);
+
+        Map<String, Stock> stockMap = createStockMapBy(stockProductNumbers);
+        Map<String, Long> productCountingMap = createCountingMapBy(stockProductNumbers);
 
         for (String stockProductNumber : new HashSet<>(stockProductNumbers)) {
             Stock stock = stockMap.get(stockProductNumber);
             int quantity = productCountingMap.get(stockProductNumber).intValue();
+
             if(stock.isQuantityLessThan(quantity)) {
                 throw new IllegalArgumentException("재고가 부족한 상품이 있습니다.");
             }
             stock.deductQuantity(quantity);
         }
+    }
 
-        Order order = Order.create(products, registeredDateTime);
-        Order savedOrder = orderRepository.save(order);
-        return OrderResponse.of(savedOrder);
+    private static Map<String, Long> createCountingMapBy(List<String> stockProductNumbers) {
+        return stockProductNumbers.stream()
+            .collect(Collectors.groupingBy(productNumber -> productNumber, Collectors.counting()));
+    }
+
+    private Map<String, Stock> createStockMapBy(List<String> stockProductNumbers) {
+        List<Stock> stocks = stockRepository.findAllByProductNumberIn(stockProductNumbers);
+        return stocks.stream()
+            .collect(Collectors.toMap(Stock::getProductNumber, s -> s));
+    }
+
+    private static List<String> extractStockProductNumbers(List<Product> products) {
+        return products.stream()
+            .filter(product -> ProductType.containsStockType(product.getType()))
+            .map(product -> product.getProductNumber())
+            .collect(Collectors.toList());
     }
 
     private List<Product> findProductsBy(List<String> productNumbers) {
