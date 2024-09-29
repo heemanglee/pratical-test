@@ -1,4 +1,4 @@
-package sample.cafekiosk.spring.domain;
+package sample.cafekiosk.spring.domain.product;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import sample.cafekiosk.spring.domain.BaseEntity;
 
 @Entity
 @Getter
